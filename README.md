@@ -6,7 +6,8 @@
 ## Usage
 -Sumobot
 ## Useful Resources
-https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf
-[https://roboton.io/try/vsc2022-VII](url)
+-https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf
+-https://docs.platformio.org/page/projectconf.html
+-[https://roboton.io/try/vsc2022-VII](url)
 
 
