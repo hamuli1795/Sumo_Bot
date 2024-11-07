@@ -1,0 +1,198 @@
+#include <Arduino.h>
+
+// Motor pins for wheels (adjust pins based on your wiring setup for ESP32 Feather)
+const int LEFT_WHEEL_FORWARD = 18;
+const int LEFT_WHEEL_BACKWARD = 19;
+const int RIGHT_WHEEL_FORWARD = 23;
+const int RIGHT_WHEEL_BACKWARD = 22;
+
+// Line sensor pins (adjust for your ESP32 setup)
+const int LINE_SENSOR_1 = 34;
+const int LINE_SENSOR_2 = 35;
+const int LINE_SENSOR_3 = 32;
+const int LINE_SENSOR_4 = 33;
+
+// Sharp IR sensor pins (adjust for your ESP32 setup)
+const int IR_SENSOR_FRONT = 36;
+const int IR_SENSOR_LEFT = 39;
+const int IR_SENSOR_RIGHT = 25;
+
+// IR and Line sensor thresholds (adjust based on testing)
+const int LINE_THRESHOLD = 300;   // Line detection threshold
+const int IR_THRESHOLD = 600;     // IR opponent detection threshold
+
+// Motor control class for wheels
+class Motor {
+public:
+  Motor(int forwardPin, int backwardPin) {
+    this->forwardPin = forwardPin;
+    this->backwardPin = backwardPin;
+    pinMode(forwardPin, OUTPUT);
+    pinMode(backwardPin, OUTPUT);
+  }
+
+  void moveForward() {
+    digitalWrite(forwardPin, HIGH);
+    digitalWrite(backwardPin, LOW);
+  }
+
+  void moveBackward() {
+    digitalWrite(forwardPin, LOW);
+    digitalWrite(backwardPin, HIGH);
+  }
+
+  void stop() {
+    digitalWrite(forwardPin, LOW);
+    digitalWrite(backwardPin, LOW);
+  }
+
+private:
+  int forwardPin;
+  int backwardPin;
+};
+
+// Line sensor class
+class LineSensor {
+public:
+  LineSensor(int pin) {
+    this->pin = pin;
+    pinMode(pin, INPUT);
+  }
+
+  bool isLineDetected() {
+    return analogRead(pin) > LINE_THRESHOLD;
+  }
+
+private:
+  int pin;
+};
+
+// Sharp IR sensor class
+class IRSensor {
+public:
+  IRSensor(int pin) {
+    this->pin = pin;
+    pinMode(pin, INPUT);
+  }
+
+  bool isOpponentDetected() {
+    return analogRead(pin) > IR_THRESHOLD;
+  }
+
+private:
+  int pin;
+};
+
+// SumoBot class encapsulating behavior
+class SumoBot {
+public:
+  SumoBot(Motor& leftWheel, Motor& rightWheel,
+          LineSensor& line1, LineSensor& line2, LineSensor& line3, LineSensor& line4,
+          IRSensor& irFront, IRSensor& irLeft, IRSensor& irRight)
+    : leftWheel(leftWheel), rightWheel(rightWheel),
+      line1(line1), line2(line2), line3(line3), line4(line4),
+      irFront(irFront), irLeft(irLeft), irRight(irRight) {}
+
+  void start() {
+    moveForward();
+  }
+
+  // Main loop behavior
+  void run() {
+    // Check line sensors
+    if (line1.isLineDetected() || line2.isLineDetected() || line3.isLineDetected() || line4.isLineDetected()) {
+      avoidLine();
+    }
+    // Check IR sensors for opponent detection
+    else if (irFront.isOpponentDetected()) {
+      attack();  // Charge towards the opponent
+    }
+    else if (irLeft.isOpponentDetected()) {
+      turnRight();  // Turn towards the opponent
+    }
+    else if (irRight.isOpponentDetected()) {
+      turnLeft();  // Turn towards the opponent
+    } else {
+      moveForward();  // Default action: move forward
+    }
+  }
+
+private:
+  Motor& leftWheel;
+  Motor& rightWheel;
+  LineSensor& line1;
+  LineSensor& line2;
+  LineSensor& line3;
+  LineSensor& line4;
+  IRSensor& irFront;
+  IRSensor& irLeft;
+  IRSensor& irRight;
+
+  // Move the bot forward
+  void moveForward() {
+    leftWheel.moveForward();
+    rightWheel.moveForward();
+  }
+
+  // Stop the bot
+  void stopAll() {
+    leftWheel.stop();
+    rightWheel.stop();
+  }
+
+  // Attack opponent (move aggressively forward)
+  void attack() {
+    moveForward();
+    delay(2000);  // Adjust time to ensure the attack
+    stopAll();
+  }
+
+  // Turn the bot to the left
+  void turnLeft() {
+    leftWheel.moveBackward();
+    rightWheel.moveForward();
+    delay(500);  // Adjust for turning angle
+    stopAll();
+  }
+
+  // Turn the bot to the right
+  void turnRight() {
+    leftWheel.moveForward();
+    rightWheel.moveBackward();
+    delay(500);  // Adjust for turning angle
+    stopAll();
+  }
+
+  // Avoid line detection by reversing
+  void avoidLine() {
+    leftWheel.moveBackward();
+    rightWheel.moveBackward();
+    delay(1000);  // Adjust the reverse time
+    stopAll();
+  }
+};
+
+// Define wheels, sensors, and bot instance
+Motor leftWheel(LEFT_WHEEL_FORWARD, LEFT_WHEEL_BACKWARD);
+Motor rightWheel(RIGHT_WHEEL_FORWARD, RIGHT_WHEEL_BACKWARD);
+
+LineSensor lineSensor1(LINE_SENSOR_1);
+LineSensor lineSensor2(LINE_SENSOR_2);
+LineSensor lineSensor3(LINE_SENSOR_3);
+LineSensor lineSensor4(LINE_SENSOR_4);
+
+IRSensor irFront(IR_SENSOR_FRONT);
+IRSensor irLeft(IR_SENSOR_LEFT);
+IRSensor irRight(IR_SENSOR_RIGHT);
+
+SumoBot bot(leftWheel, rightWheel, lineSensor1, lineSensor2, lineSensor3, lineSensor4, irFront, irLeft, irRight);
+
+void setup() {
+  Serial.begin(115200);  // ESP32 generally uses a higher baud rate
+  bot.start();           // Move the bot forward at the start
+}
+
+void loop() {
+  bot.run();             // Continuously run bot's behavior
+  delay(100);            // Small delay to stabilize readings
+}
